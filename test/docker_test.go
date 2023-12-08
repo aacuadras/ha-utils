@@ -5,15 +5,10 @@ import (
 	"testing"
 
 	"github.com/aacuadras/ha-utils/lib/docker"
-	"github.com/docker/docker/client"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestCreateDestroyDockerContainer(t *testing.T) {
-	client, _ := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
-
-	defer client.Close()
-
 	containerSettings := &docker.Settings{
 		ImageName:     "alpine",
 		ContainerName: "testContainer",
@@ -22,15 +17,15 @@ func TestCreateDestroyDockerContainer(t *testing.T) {
 		},
 	}
 
-	id, _ := docker.StartContainer(client, containerSettings, context.Background())
+	id, _ := docker.StartContainer(containerSettings, context.Background())
 
-	containerIds, err := docker.ListContainerIDs(client, context.Background())
+	containerIds, err := docker.ListContainerIDs(context.Background())
 
 	assert.Nil(t, err)
 	assert.Contains(t, containerIds, id)
 
-	docker.StopContainer(client, containerSettings)
-	containerIds, _ = docker.ListContainerIDs(client, context.Background())
+	docker.StopContainer(containerSettings)
+	containerIds, _ = docker.ListContainerIDs(context.Background())
 
 	assert.NotContains(t, containerIds, id)
 }

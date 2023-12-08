@@ -19,6 +19,10 @@ type Settings struct {
 	EnvVars       []string
 }
 
+func createClient() (*client.Client, error) {
+	return client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+}
+
 func pullImage(client *client.Client, imageName string) error {
 	reader, err := client.ImagePull(context.Background(), imageName, types.ImagePullOptions{})
 
@@ -73,11 +77,18 @@ func setContainerSettings() (*container.HostConfig, *network.NetworkingConfig, m
 	return hostConfig, networkConfig, exposedPorts, nil
 }
 
-func StopContainer(client *client.Client, settings *Settings) error {
+func StopContainer(settings *Settings) error {
 	context := context.Background()
 	log.Printf("Stopping container %s...", settings.ContainerName)
 
-	err := client.ContainerStop(context, settings.ContainerName, container.StopOptions{})
+	client, err := createClient()
+	if err != nil {
+		return err
+	}
+
+	defer client.Close()
+
+	err = client.ContainerStop(context, settings.ContainerName, container.StopOptions{})
 
 	if err != nil {
 		log.Panic("Unable to stop home assistant container")
@@ -98,7 +109,14 @@ func StopContainer(client *client.Client, settings *Settings) error {
 	return nil
 }
 
-func StartContainer(client *client.Client, settings *Settings, ctx context.Context) (string, error) {
+func StartContainer(settings *Settings, ctx context.Context) (string, error) {
+	client, err := createClient()
+	if err != nil {
+		return "", err
+	}
+
+	defer client.Close()
+
 	hostConfig, networkConfig, exposedPorts, err := setContainerSettings()
 
 	if err != nil {
@@ -137,7 +155,14 @@ func StartContainer(client *client.Client, settings *Settings, ctx context.Conte
 	return cont.ID, nil
 }
 
-func ListContainerIDs(client *client.Client, ctx context.Context) ([]string, error) {
+func ListContainerIDs(ctx context.Context) ([]string, error) {
+	client, err := createClient()
+	if err != nil {
+		return []string{}, err
+	}
+
+	defer client.Close()
+
 	containers, err := client.ContainerList(context.Background(), types.ContainerListOptions{})
 
 	if err != nil {
