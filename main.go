@@ -1,21 +1,27 @@
 package main
 
 import (
+	"context"
+	"time"
+
 	"github.com/aacuadras/ha-utils/lib/docker"
-	"github.com/docker/docker/client"
 )
 
 func main() {
-	client, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	containerSettings := &docker.Settings{
+		ImageName:     "homeassistant/home-assistant",
+		ContainerName: "homeassistant",
+		EnvVars: []string{
+			"TZ=America/Chicago",
+		},
+	}
 
+	_, err := docker.StartContainer(containerSettings, context.Background())
 	if err != nil {
 		panic(err)
 	}
 
-	defer client.Close()
+	time.Sleep(time.Second * 30)
 
-	err = docker.StartContainer(client)
-	if err != nil {
-		panic(err)
-	}
+	docker.StopContainer(containerSettings)
 }

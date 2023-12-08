@@ -2,43 +2,32 @@ package docker
 
 import (
 	"context"
-	"io"
 	"log"
-	"os"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
-	"github.com/docker/go-connections/nat"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-func pullImage(client *client.Client, imageName string) error {
-	reader, err := client.ImagePull(context.Background(), imageName, types.ImagePullOptions{})
+func StopContainer(settings *Settings) error {
+	context := context.Background()
+	log.Printf("Stopping container %s...", settings.ContainerName)
 
+	client, err := createClient()
 	if err != nil {
 		return err
 	}
 
-	defer reader.Close()
-	io.Copy(os.Stdout, reader)
+	defer client.Close()
 
-	return nil
-}
-
-func StopContainer(client *client.Client, container_name string) error {
-	context := context.Background()
-	log.Printf("Stopping container %s...", container_name)
-
-	err := client.ContainerStop(context, container_name, container.StopOptions{})
+	err = client.ContainerStop(context, settings.ContainerName, container.StopOptions{})
 
 	if err != nil {
 		log.Panic("Unable to stop home assistant container")
 		return err
 	}
 
-	err = client.ContainerRemove(context, container_name, types.ContainerRemoveOptions{
+	err = client.ContainerRemove(context, settings.ContainerName, types.ContainerRemoveOptions{
 		RemoveVolumes: true,
 		Force:         true,
 	})
@@ -48,78 +37,74 @@ func StopContainer(client *client.Client, container_name string) error {
 		return err
 	}
 
-	log.Printf("Successfully stopped container %s!", container_name)
+	log.Printf("Successfully stopped container %s!", settings.ContainerName)
 	return nil
 }
 
-func StartContainer(client *client.Client) error {
-	portNumber := "8123"
-	port, err := nat.NewPort("tcp", portNumber)
+func StartContainer(settings *Settings, ctx context.Context) (string, error) {
+	client, err := createClient()
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	hostConfig := &container.HostConfig{
-		PortBindings: nat.PortMap{
-			port: []nat.PortBinding{
-				{
-					HostIP:   "0.0.0.0",
-					HostPort: portNumber,
-				},
-			},
-		},
-		RestartPolicy: container.RestartPolicy{
-			Name: "unless-stopped",
-		},
-		LogConfig: container.LogConfig{
-			Type:   "json-file",
-			Config: map[string]string{},
-		},
-	}
+	defer client.Close()
 
-	networkConfig := &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{},
-	}
+	hostConfig, networkConfig, exposedPorts, err := setContainerSettings()
 
-	endpointConfig := &network.EndpointSettings{
-		Gateway: "gatewayname",
-	}
-	networkConfig.EndpointsConfig["bridge"] = endpointConfig
-
-	exposedPorts := map[nat.Port]struct{}{
-		port: struct{}{},
+	if err != nil {
+		return "", err
 	}
 
 	config := &container.Config{
-		Image: "homeassistant/home-assistant",
-		Env: []string{
-			"TZ=America/Chicago",
-		},
+		Image:        settings.ImageName,
+		Env:          settings.EnvVars,
 		ExposedPorts: exposedPorts,
-		Hostname:     "homeassistant",
+		Hostname:     settings.ContainerName,
 	}
 
-	err = pullImage(client, "homeassistant/home-assistant")
+	err = pullImage(client, settings.ImageName)
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	log.Printf("Creating Container...")
+	log.Printf("Creating %s Container...", settings.ContainerName)
 	cont, err := client.ContainerCreate(
-		context.Background(),
+		ctx,
 		config,
 		hostConfig,
 		networkConfig,
 		&v1.Platform{},
-		"homeassistant",
+		settings.ContainerName,
 	)
 
 	if err != nil {
-		return err
+		return "", err
 	}
 
-	client.ContainerStart(context.Background(), cont.ID, types.ContainerStartOptions{})
-	log.Printf("Container Started! (%s)", cont.ID)
+	client.ContainerStart(ctx, cont.ID, types.ContainerStartOptions{})
+	log.Printf("Container %s Started! (%s)", settings.ContainerName, cont.ID)
 
-	return nil
+	return cont.ID, nil
+}
+
+func ListContainerIDs(ctx context.Context) ([]string, error) {
+	client, err := createClient()
+	if err != nil {
+		return []string{}, err
+	}
+
+	defer client.Close()
+
+	containers, err := client.ContainerList(context.Background(), types.ContainerListOptions{})
+
+	if err != nil {
+		return []string{}, err
+	}
+
+	var containerIds []string
+	for _, container := range containers {
+		containerIds = append(containerIds, container.ID)
+	}
+
+	return containerIds, nil
 }
