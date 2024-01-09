@@ -1,4 +1,4 @@
-package main
+package test
 
 import (
 	"context"
@@ -66,4 +66,41 @@ func TestCreateDestroyDockerContainerCall(t *testing.T) {
 	out, err = client.StopContainer(ctx, &request)
 	assert.Nil(t, err)
 	assert.Equal(t, "stopped", out.Status)
+}
+
+func TestGetContainerCall(t *testing.T) {
+	ctx := context.Background()
+	containerName := "container-test"
+
+	client, closer := createClient(ctx)
+	defer closer()
+
+	request := pb.ContainerRequest{
+		ContainerName: containerName,
+	}
+
+	client.StartContainer(ctx, &request)
+	defer client.StopContainer(ctx, &request)
+	out, err := client.GetContainer(ctx, &request)
+
+	assert.Nil(t, err)
+	assert.NotEmpty(t, out.ContainerId)
+	assert.Equal(t, "running", out.Status)
+}
+
+func TestGetEmptyContainerCall(t *testing.T) {
+	ctx := context.Background()
+	containerName := "empty-container"
+
+	client, closer := createClient(ctx)
+	defer closer()
+
+	request := pb.ContainerRequest{
+		ContainerName: containerName,
+	}
+
+	out, err := client.GetContainer(ctx, &request)
+	assert.Nil(t, err)
+	assert.Empty(t, out.ContainerId)
+	assert.Empty(t, out.Status)
 }
