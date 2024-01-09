@@ -108,3 +108,20 @@ func ListContainerIDs(ctx context.Context) ([]string, error) {
 
 	return containerIds, nil
 }
+
+func GetContainer(ctx context.Context, id string) (types.ContainerJSON, error) {
+	client, err := createClient()
+	if err != nil {
+		return types.ContainerJSON{}, err
+	}
+
+	defer client.Close()
+
+	container, err := client.ContainerInspect(ctx, id)
+
+	if err != nil {
+		return types.ContainerJSON{}, err
+	}
+
+	return container, nil
+}

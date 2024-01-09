@@ -1,0 +1,18 @@
+syntax = "proto3";
+option go_package = "server/pb";
+
+message ContainerResponse {
+    string status = 1;
+    string containerId = 2;
+    string containerName = 3;
+}
+
+message ContainerRequest {
+    string containerName = 2;
+}
+
+service DockerUtils {
+    rpc StartContainer(ContainerRequest) returns (ContainerResponse) {}
+    rpc StopContainer(ContainerRequest) returns (ContainerResponse) {}
+    rpc GetContainer(ContainerRequest) returns (ContainerResponse) {}
+}

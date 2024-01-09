@@ -1,27 +1,24 @@
 package main
 
 import (
-	"context"
-	"time"
+	"log"
+	"net"
 
-	"github.com/aacuadras/ha-utils/lib/docker"
+	"github.com/aacuadras/ha-utils/server"
+	pb "github.com/aacuadras/ha-utils/server/pb"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 )
 
 func main() {
-	containerSettings := &docker.Settings{
-		ImageName:     "homeassistant/home-assistant",
-		ContainerName: "homeassistant",
-		EnvVars: []string{
-			"TZ=America/Chicago",
-		},
-	}
-
-	_, err := docker.StartContainer(containerSettings, context.Background())
+	listener, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
-		panic(err)
+		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	time.Sleep(time.Second * 30)
-
-	docker.StopContainer(containerSettings)
+	var opts []grpc.ServerOption
+	s := grpc.NewServer(opts...)
+	pb.RegisterDockerUtilsServer(s, server.NewServer())
+	reflection.Register(s)
+	s.Serve(listener)
 }
