@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
+// Start the grpc server on port 8080
 func main() {
 	listener, err := net.Listen("tcp", "localhost:8080")
 	if err != nil {
