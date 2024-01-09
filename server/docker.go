@@ -1,18 +1,18 @@
-package main
+package server
 
 import (
 	"context"
-	"log"
-	"net"
 
 	"github.com/aacuadras/ha-utils/lib/docker"
 	pb "github.com/aacuadras/ha-utils/server/pb"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 type server struct {
 	pb.UnimplementedDockerUtilsServer
+}
+
+func NewServer() pb.DockerUtilsServer {
+	return &server{}
 }
 
 func (s *server) StartContainer(ctx context.Context, in *pb.ContainerRequest) (*pb.ContainerResponse, error) {
@@ -49,24 +49,17 @@ func (s *server) StopContainer(ctx context.Context, in *pb.ContainerRequest) (*p
 		return nil, err
 	}
 
-	containerStatus, err := docker.GetContainer(ctx, in.ContainerName)
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &pb.ContainerResponse{ContainerId: "", Status: containerStatus.State.Status}, nil
+	return &pb.ContainerResponse{ContainerId: "", Status: "stopped"}, nil
 }
 
-func main() {
-	listener, err := net.Listen("tcp", "localhost:8080")
+func (s *server) GetContainer(ctx context.Context, in *pb.ContainerRequest) (*pb.ContainerResponse, error) {
+	status, err := docker.GetContainer(ctx, in.ContainerName)
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		return &pb.ContainerResponse{}, nil
 	}
 
-	var opts []grpc.ServerOption
-	s := grpc.NewServer(opts...)
-	pb.RegisterDockerUtilsServer(s, &server{})
-	reflection.Register(s)
-	s.Serve(listener)
+	return &pb.ContainerResponse{
+		ContainerId: status.ID,
+		Status:      status.State.Status,
+	}, nil
 }

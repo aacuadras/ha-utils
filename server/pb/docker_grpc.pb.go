@@ -24,6 +24,7 @@ const _ = grpc.SupportPackageIsVersion7
 type DockerUtilsClient interface {
 	StartContainer(ctx context.Context, in *ContainerRequest, opts ...grpc.CallOption) (*ContainerResponse, error)
 	StopContainer(ctx context.Context, in *ContainerRequest, opts ...grpc.CallOption) (*ContainerResponse, error)
+	GetContainer(ctx context.Context, in *ContainerRequest, opts ...grpc.CallOption) (*ContainerResponse, error)
 }
 
 type dockerUtilsClient struct {
@@ -52,12 +53,22 @@ func (c *dockerUtilsClient) StopContainer(ctx context.Context, in *ContainerRequ
 	return out, nil
 }
 
+func (c *dockerUtilsClient) GetContainer(ctx context.Context, in *ContainerRequest, opts ...grpc.CallOption) (*ContainerResponse, error) {
+	out := new(ContainerResponse)
+	err := c.cc.Invoke(ctx, "/DockerUtils/GetContainer", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DockerUtilsServer is the server API for DockerUtils service.
 // All implementations must embed UnimplementedDockerUtilsServer
 // for forward compatibility
 type DockerUtilsServer interface {
 	StartContainer(context.Context, *ContainerRequest) (*ContainerResponse, error)
 	StopContainer(context.Context, *ContainerRequest) (*ContainerResponse, error)
+	GetContainer(context.Context, *ContainerRequest) (*ContainerResponse, error)
 	mustEmbedUnimplementedDockerUtilsServer()
 }
 
@@ -70,6 +81,9 @@ func (UnimplementedDockerUtilsServer) StartContainer(context.Context, *Container
 }
 func (UnimplementedDockerUtilsServer) StopContainer(context.Context, *ContainerRequest) (*ContainerResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StopContainer not implemented")
+}
+func (UnimplementedDockerUtilsServer) GetContainer(context.Context, *ContainerRequest) (*ContainerResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetContainer not implemented")
 }
 func (UnimplementedDockerUtilsServer) mustEmbedUnimplementedDockerUtilsServer() {}
 
@@ -120,6 +134,24 @@ func _DockerUtils_StopContainer_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DockerUtils_GetContainer_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ContainerRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DockerUtilsServer).GetContainer(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/DockerUtils/GetContainer",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DockerUtilsServer).GetContainer(ctx, req.(*ContainerRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DockerUtils_ServiceDesc is the grpc.ServiceDesc for DockerUtils service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -134,6 +166,10 @@ var DockerUtils_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StopContainer",
 			Handler:    _DockerUtils_StopContainer_Handler,
+		},
+		{
+			MethodName: "GetContainer",
+			Handler:    _DockerUtils_GetContainer_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
