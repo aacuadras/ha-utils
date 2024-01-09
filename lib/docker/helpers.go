@@ -12,16 +12,19 @@ import (
 	"github.com/docker/go-connections/nat"
 )
 
+// Settings used to create/delete a container
 type Settings struct {
 	ImageName     string
 	ContainerName string
 	EnvVars       []string
 }
 
+// Creates a docker client
 func createClient() (*client.Client, error) {
 	return client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 }
 
+// Pulls an image from a remote registry
 func pullImage(client *client.Client, imageName string) error {
 	reader, err := client.ImagePull(context.Background(), imageName, types.ImagePullOptions{})
 
@@ -35,6 +38,7 @@ func pullImage(client *client.Client, imageName string) error {
 	return nil
 }
 
+// Sets container's network settings. The port is hardcoded to 8123 since it's the one used by Home Assistant
 func setContainerSettings() (*container.HostConfig, *network.NetworkingConfig, map[nat.Port]struct{}, error) {
 	portNumber := "8123"
 	port, err := nat.NewPort("tcp", portNumber)

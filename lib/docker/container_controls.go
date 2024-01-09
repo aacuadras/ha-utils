@@ -9,6 +9,7 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
+// Stops and deletes the docker container specified in the settings
 func StopContainer(settings *Settings) error {
 	context := context.Background()
 	log.Printf("Stopping container %s...", settings.ContainerName)
@@ -41,6 +42,7 @@ func StopContainer(settings *Settings) error {
 	return nil
 }
 
+// Starts a docker contaienr with the image specified in the settings being sent in. It returns the ID of the new container
 func StartContainer(settings *Settings, ctx context.Context) (string, error) {
 	client, err := createClient()
 	if err != nil {
@@ -87,6 +89,8 @@ func StartContainer(settings *Settings, ctx context.Context) (string, error) {
 	return cont.ID, nil
 }
 
+// Lists the IDs of all the containers that are running in the machine, this is a helper method to test the creation
+// of the containers
 func ListContainerIDs(ctx context.Context) ([]string, error) {
 	client, err := createClient()
 	if err != nil {
@@ -109,6 +113,7 @@ func ListContainerIDs(ctx context.Context) ([]string, error) {
 	return containerIds, nil
 }
 
+// Gets the container information based on its ID
 func GetContainer(ctx context.Context, id string) (types.ContainerJSON, error) {
 	client, err := createClient()
 	if err != nil {
