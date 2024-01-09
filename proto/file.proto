@@ -9,7 +9,7 @@ message File {
 message ProcessedFile {
     bool processed = 1;
     string fileName = 2;
-    optional string error = 3;
+    string error = 3;
 }
 
 message FileDiff {
