@@ -20,6 +20,7 @@ func main() {
 	var opts []grpc.ServerOption
 	s := grpc.NewServer(opts...)
 	pb.RegisterDockerUtilsServer(s, server.NewServer())
+	pb.RegisterFileUtilsServer(s, server.NewFileServer())
 	reflection.Register(s)
 	s.Serve(listener)
 }
