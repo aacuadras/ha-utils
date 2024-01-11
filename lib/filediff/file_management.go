@@ -6,6 +6,7 @@ import (
 	"os"
 )
 
+// This function decodes the contents of a base64 encoded file
 func decodeFile(fileContents string) ([]byte, error) {
 	decodedContents, err := b64.StdEncoding.DecodeString(fileContents)
 	if err != nil {
@@ -15,6 +16,7 @@ func decodeFile(fileContents string) ([]byte, error) {
 	return decodedContents, nil
 }
 
+// This function checks if the contents of a file match the contents of the file currently in the system
 func IsSameFile(fileName string, encodedContent string) (bool, error) {
 	decodedContent, err := decodeFile(encodedContent)
 	if err != nil {
@@ -29,6 +31,7 @@ func IsSameFile(fileName string, encodedContent string) (bool, error) {
 	return bytes.Equal(fileContents, decodedContent), nil
 }
 
+// This function replaces the contents of an existing file
 func ReplaceFile(fileName string, encodedFileContents string) error {
 	fileContents, err := decodeFile(encodedFileContents)
 	if err != nil {
@@ -42,6 +45,7 @@ func ReplaceFile(fileName string, encodedFileContents string) error {
 	return nil
 }
 
+// This function creates a test file to run integration tests against grpc operations
 func CreateTestFile(content string, fileName string) error {
 	// If test directory does not exist, create it
 	if _, err := os.Stat("./test_files"); os.IsNotExist(err) {
