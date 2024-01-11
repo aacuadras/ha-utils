@@ -43,6 +43,12 @@ func ReplaceFile(fileName string, encodedFileContents string) error {
 }
 
 func CreateTestFile(content string, fileName string) error {
+	// If test directory does not exist, create it
+	if _, err := os.Stat("./test_files"); os.IsNotExist(err) {
+		if err := os.Mkdir("test_files/", 0700); err != nil {
+			return err
+		}
+	}
 	// Hardcode test_files directory since this method is only intended to be used with tests
 	if err := os.WriteFile("./test_files/"+fileName, []byte(content), 0755); err != nil {
 		return err
