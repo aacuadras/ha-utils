@@ -41,3 +41,12 @@ func ReplaceFile(fileName string, encodedFileContents string) error {
 
 	return nil
 }
+
+func CreateTestFile(content string, fileName string) error {
+	// Hardcode test_files directory since this method is only intended to be used with tests
+	if err := os.WriteFile("./test_files/"+fileName, []byte(content), 0755); err != nil {
+		return err
+	}
+
+	return nil
+}

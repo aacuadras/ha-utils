@@ -8,6 +8,7 @@ import (
 	"net"
 	"testing"
 
+	"github.com/aacuadras/ha-utils/lib/filediff"
 	"github.com/aacuadras/ha-utils/server"
 	"github.com/aacuadras/ha-utils/server/pb"
 	"github.com/stretchr/testify/assert"
@@ -70,7 +71,7 @@ func TestCompareFile(t *testing.T) {
 		"test_same_file": {
 			input: &pb.File{
 				FileName:       "./test_files/test.txt",
-				EncodedContent: encondeFileContent("This is a test\n"),
+				EncodedContent: encondeFileContent("This is a test"),
 			},
 			expected: expectation{
 				output: &pb.FileDiff{
@@ -111,13 +112,56 @@ func TestCompareFile(t *testing.T) {
 
 	for scenario, testcase := range testCases {
 		t.Run(scenario, func(t *testing.T) {
+			filediff.CreateTestFile("This is a test", "test.txt")
 			out, err := client.CompareFile(ctx, testcase.input)
-			log.Print(testcase.input.EncodedContent)
+
 			if err != nil {
 				assert.ErrorContains(t, err, testcase.expected.err.Error())
 			} else {
 				assert.Equal(t, testcase.expected.output.IsSame, out.IsSame)
 			}
+		})
+	}
+}
+
+func TestSendFile(t *testing.T) {
+	ctx := context.Background()
+	client, closer := createFileClient(ctx)
+	defer closer()
+
+	type expectation struct {
+		output *pb.ProcessedFile
+	}
+
+	testCases := map[string]struct {
+		input    *pb.File
+		expected expectation
+	}{
+		"send_different_file": {
+			input: &pb.File{
+				FileName:       "./test_files/test.txt",
+				EncodedContent: encondeFileContent("This is a different test"),
+			},
+			expected: expectation{
+				output: &pb.ProcessedFile{
+					Processed: true,
+					FileName:  "./test_files/test.txt",
+				},
+			},
+		},
+	}
+
+	for scenario, testcase := range testCases {
+		t.Run(scenario, func(t *testing.T) {
+			filediff.CreateTestFile("This is a test", "test.txt")
+			out, err := client.SendFile(ctx, testcase.input)
+			log.Print(out.Processed)
+			log.Print(testcase.expected.output.Processed)
+
+			assert.Nil(t, err)
+			assert.Equal(t, testcase.expected.output.Processed, out.Processed)
+			assert.Equal(t, testcase.expected.output.FileName, out.FileName)
+			assert.Equal(t, testcase.expected.output.Error, out.Error)
 		})
 	}
 }
