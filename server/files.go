@@ -11,8 +11,9 @@ import (
 
 type fileServer struct {
 	pb.UnimplementedFileUtilsServer
-	mu        sync.Mutex
-	fileDiffs []*pb.FileDiff
+	mu             sync.Mutex
+	fileDiffs      []*pb.FileDiff
+	processedFiles []*pb.ProcessedFile
 }
 
 func NewFileServer() pb.FileUtilsServer {
@@ -46,6 +47,53 @@ func (s *fileServer) SendFile(ctx context.Context, in *pb.File) (*pb.ProcessedFi
 	return &pb.ProcessedFile{
 		Processed: false,
 	}, nil
+}
+
+func (s *fileServer) SendFiles(stream pb.FileUtils_SendFilesServer) error {
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		isEqual, err := filediff.IsSameFile(in.FileName, in.EncodedContent)
+		if err != nil {
+			return err
+		}
+
+		s.mu.Lock()
+		if !isEqual {
+			if err := filediff.ReplaceFile(in.FileName, in.EncodedContent); err != nil {
+				s.processedFiles = append(s.processedFiles, &pb.ProcessedFile{
+					Processed: false,
+					Error:     err.Error(),
+				})
+			} else {
+				s.processedFiles = append(s.processedFiles, &pb.ProcessedFile{
+					Processed: true,
+					FileName:  in.FileName,
+				})
+			}
+		} else {
+			s.processedFiles = append(s.processedFiles, &pb.ProcessedFile{
+				Processed: false,
+			})
+		}
+
+		rn := make([]*pb.ProcessedFile, len(s.processedFiles))
+		copy(rn, s.processedFiles)
+		s.mu.Unlock()
+
+		for _, note := range rn {
+			if err := stream.Send(note); err != nil {
+				return err
+			}
+			s.processedFiles = s.processedFiles[:0]
+		}
+	}
 }
 
 // This function compares the encoded contents of a file with a file currently in the path provided, it will return

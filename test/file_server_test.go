@@ -302,3 +302,127 @@ func TestCompareFiles(t *testing.T) {
 		})
 	}
 }
+
+func TestSendFiles(t *testing.T) {
+	ctx := context.Background()
+	client, closer := createFileClient(ctx)
+	defer closer()
+
+	type expectation struct {
+		out []*pb.ProcessedFile
+		err error
+	}
+
+	testcases := map[string]struct {
+		input    []*pb.File
+		expected expectation
+	}{
+		"send_new_files": {
+			input: []*pb.File{
+				{
+					FileName:       "./test_files/test1.txt",
+					EncodedContent: encondeFileContent("This is a different test"),
+				},
+				{
+					FileName:       "./test_files/test2.txt",
+					EncodedContent: encondeFileContent("To see if the content of the files changes"),
+				},
+			},
+			expected: expectation{
+				out: []*pb.ProcessedFile{
+					{
+						Processed: true,
+						FileName:  "./test_files/test1.txt",
+					},
+					{
+						Processed: true,
+						FileName:  "./test_files/test2.txt",
+					},
+				},
+			},
+		},
+		"send_content_to_same_file": {
+			input: []*pb.File{
+				{
+					FileName:       "./test_files/test1.txt",
+					EncodedContent: encondeFileContent("This is a different test"),
+				},
+				{
+					FileName:       "./test_files/test1.txt",
+					EncodedContent: encondeFileContent("To see if the content of the files changes"),
+				},
+			},
+			expected: expectation{
+				out: []*pb.ProcessedFile{
+					{
+						Processed: true,
+						FileName:  "./test_files/test1.txt",
+					},
+					{
+						Processed: true,
+						FileName:  "./test_files/test1.txt",
+					},
+				},
+			},
+		},
+		"send_same_content_to_files": {
+			input: []*pb.File{
+				{
+					FileName:       "./test_files/test1.txt",
+					EncodedContent: encondeFileContent("This is a test"),
+				},
+				{
+					FileName:       "./test_files/test2.txt",
+					EncodedContent: encondeFileContent("This is another test"),
+				},
+			},
+			expected: expectation{
+				out: []*pb.ProcessedFile{
+					{
+						Processed: false,
+					},
+					{
+						Processed: false,
+					},
+				},
+			},
+		},
+	}
+
+	for scenario, testcase := range testcases {
+		t.Run(scenario, func(t *testing.T) {
+			filediff.CreateTestFile("This is a test", "test1.txt")
+			filediff.CreateTestFile("This is another test", "test2.txt")
+
+			out, err := client.SendFiles(ctx)
+
+			for _, v := range testcase.input {
+				if err := out.Send(v); err != nil {
+					t.Errorf("Error while sending message: %v", err)
+				}
+			}
+
+			if err := out.CloseSend(); err != nil {
+				t.Errorf("Error closing stream: %v", err)
+			}
+
+			var outputs []*pb.ProcessedFile
+			for {
+				o, err := out.Recv()
+				if errors.Is(err, io.EOF) {
+					break
+				}
+
+				outputs = append(outputs, o)
+			}
+
+			assert.Nil(t, err)
+			assert.Equal(t, len(testcase.expected.out), len(outputs))
+			for i, o := range outputs {
+				assert.Equal(t, testcase.expected.out[i].Processed, o.Processed)
+				assert.Equal(t, testcase.expected.out[i].FileName, o.FileName)
+				assert.Equal(t, testcase.expected.out[i].Error, o.Error)
+			}
+		})
+	}
+}
