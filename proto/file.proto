@@ -1,0 +1,24 @@
+syntax = "proto3";
+option go_package = "server/pb";
+
+message File {
+    string fileName = 1;
+    string encodedContent = 2;
+}
+
+message ProcessedFile {
+    bool processed = 1;
+    string fileName = 2;
+    string error = 3;
+}
+
+message FileDiff {
+    bool isSame = 1;
+}
+
+service FileUtils {
+    rpc SendFile(File) returns (ProcessedFile) {}
+    rpc SendFiles(stream File) returns (stream ProcessedFile) {}
+    rpc CompareFile(File) returns (FileDiff) {}
+    rpc CompareFiles(stream File) returns (stream FileDiff) {}
+}
