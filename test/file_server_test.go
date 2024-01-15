@@ -308,14 +308,9 @@ func TestSendFiles(t *testing.T) {
 	client, closer := createFileClient(ctx)
 	defer closer()
 
-	type expectation struct {
-		out []*pb.ProcessedFile
-		err error
-	}
-
 	testcases := map[string]struct {
 		input    []*pb.File
-		expected expectation
+		expected []*pb.ProcessedFile
 	}{
 		"send_new_files": {
 			input: []*pb.File{
@@ -328,16 +323,14 @@ func TestSendFiles(t *testing.T) {
 					EncodedContent: encondeFileContent("To see if the content of the files changes"),
 				},
 			},
-			expected: expectation{
-				out: []*pb.ProcessedFile{
-					{
-						Processed: true,
-						FileName:  "./test_files/test1.txt",
-					},
-					{
-						Processed: true,
-						FileName:  "./test_files/test2.txt",
-					},
+			expected: []*pb.ProcessedFile{
+				{
+					Processed: true,
+					FileName:  "./test_files/test1.txt",
+				},
+				{
+					Processed: true,
+					FileName:  "./test_files/test2.txt",
 				},
 			},
 		},
@@ -352,16 +345,14 @@ func TestSendFiles(t *testing.T) {
 					EncodedContent: encondeFileContent("To see if the content of the files changes"),
 				},
 			},
-			expected: expectation{
-				out: []*pb.ProcessedFile{
-					{
-						Processed: true,
-						FileName:  "./test_files/test1.txt",
-					},
-					{
-						Processed: true,
-						FileName:  "./test_files/test1.txt",
-					},
+			expected: []*pb.ProcessedFile{
+				{
+					Processed: true,
+					FileName:  "./test_files/test1.txt",
+				},
+				{
+					Processed: true,
+					FileName:  "./test_files/test1.txt",
 				},
 			},
 		},
@@ -376,14 +367,12 @@ func TestSendFiles(t *testing.T) {
 					EncodedContent: encondeFileContent("This is another test"),
 				},
 			},
-			expected: expectation{
-				out: []*pb.ProcessedFile{
-					{
-						Processed: false,
-					},
-					{
-						Processed: false,
-					},
+			expected: []*pb.ProcessedFile{
+				{
+					Processed: false,
+				},
+				{
+					Processed: false,
 				},
 			},
 		},
@@ -417,11 +406,11 @@ func TestSendFiles(t *testing.T) {
 			}
 
 			assert.Nil(t, err)
-			assert.Equal(t, len(testcase.expected.out), len(outputs))
+			assert.Equal(t, len(testcase.expected), len(outputs))
 			for i, o := range outputs {
-				assert.Equal(t, testcase.expected.out[i].Processed, o.Processed)
-				assert.Equal(t, testcase.expected.out[i].FileName, o.FileName)
-				assert.Equal(t, testcase.expected.out[i].Error, o.Error)
+				assert.Equal(t, testcase.expected[i].Processed, o.Processed)
+				assert.Equal(t, testcase.expected[i].FileName, o.FileName)
+				assert.Equal(t, testcase.expected[i].Error, o.Error)
 			}
 		})
 	}
