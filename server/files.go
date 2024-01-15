@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"io"
+	"sync"
 
 	"github.com/aacuadras/ha-utils/lib/filediff"
 	"github.com/aacuadras/ha-utils/server/pb"
@@ -9,6 +11,8 @@ import (
 
 type fileServer struct {
 	pb.UnimplementedFileUtilsServer
+	mu        sync.Mutex
+	fileDiffs []*pb.FileDiff
 }
 
 func NewFileServer() pb.FileUtilsServer {
@@ -53,4 +57,36 @@ func (s *fileServer) CompareFile(ctx context.Context, in *pb.File) (*pb.FileDiff
 	}
 
 	return &pb.FileDiff{IsSame: isEqual}, nil
+}
+
+func (s *fileServer) CompareFiles(stream pb.FileUtils_CompareFilesServer) error {
+	for {
+		in, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		isEqual, err := filediff.IsSameFile(in.FileName, in.EncodedContent)
+		if err != nil {
+			return err
+		}
+
+		s.mu.Lock()
+		s.fileDiffs = append(s.fileDiffs, &pb.FileDiff{
+			IsSame: isEqual,
+		})
+		rn := make([]*pb.FileDiff, len(s.fileDiffs))
+		copy(rn, s.fileDiffs)
+		s.mu.Unlock()
+
+		for _, note := range rn {
+			if err := stream.Send(note); err != nil {
+				return err
+			}
+			s.fileDiffs = s.fileDiffs[:0]
+		}
+	}
 }

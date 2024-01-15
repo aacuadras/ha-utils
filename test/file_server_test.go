@@ -4,6 +4,7 @@ import (
 	"context"
 	b64 "encoding/base64"
 	"errors"
+	"io"
 	"log"
 	"net"
 	"testing"
@@ -162,6 +163,142 @@ func TestSendFile(t *testing.T) {
 			assert.Equal(t, testcase.expected.output.Processed, out.Processed)
 			assert.Equal(t, testcase.expected.output.FileName, out.FileName)
 			assert.Equal(t, testcase.expected.output.Error, out.Error)
+		})
+	}
+}
+
+func TestCompareFiles(t *testing.T) {
+	ctx := context.Background()
+	client, closer := createFileClient(ctx)
+	defer closer()
+
+	type expectation struct {
+		out []*pb.FileDiff
+		err error
+	}
+
+	testcases := map[string]struct {
+		input    []*pb.File
+		expected expectation
+	}{
+		"compare_same_files": {
+			input: []*pb.File{
+				{
+					FileName:       "./test_files/test1.txt",
+					EncodedContent: encondeFileContent("This is a test"),
+				},
+				{
+					FileName:       "./test_files/test2.txt",
+					EncodedContent: encondeFileContent("This is another test"),
+				},
+				{
+					FileName:       "./test_files/test3.txt",
+					EncodedContent: encondeFileContent("This is a third and final test"),
+				},
+			},
+			expected: expectation{
+				out: []*pb.FileDiff{
+					{
+						IsSame: true,
+					},
+					{
+						IsSame: true,
+					},
+					{
+						IsSame: true,
+					},
+				},
+			},
+		},
+		"compare_different_files": {
+			input: []*pb.File{
+				{
+					FileName:       "./test_files/test1.txt",
+					EncodedContent: encondeFileContent("This is a test?"),
+				},
+				{
+					FileName:       "./test_files/test2.txt",
+					EncodedContent: encondeFileContent("This is a test that should be false"),
+				},
+			},
+			expected: expectation{
+				out: []*pb.FileDiff{
+					{
+						IsSame: false,
+					},
+					{
+						IsSame: false,
+					},
+				},
+			},
+		},
+		"compare_mixed_files": {
+			input: []*pb.File{
+				{
+					FileName:       "./test_files/test1.txt",
+					EncodedContent: encondeFileContent("This is a test"),
+				},
+				{
+					FileName:       "./test_files/test2.txt",
+					EncodedContent: encondeFileContent("This is another test, but this should be false"),
+				},
+				{
+					FileName:       "./test_files/test3.txt",
+					EncodedContent: encondeFileContent("This is a third and final test"),
+				},
+			},
+			expected: expectation{
+				out: []*pb.FileDiff{
+					{
+						IsSame: true,
+					},
+					{
+						IsSame: false,
+					},
+					{
+						IsSame: true,
+					},
+				},
+			},
+		},
+	}
+
+	for scenario, testcase := range testcases {
+		t.Run(scenario, func(t *testing.T) {
+			filediff.CreateTestFile("This is a test", "test1.txt")
+			filediff.CreateTestFile("This is another test", "test2.txt")
+			filediff.CreateTestFile("This is a third and final test", "test3.txt")
+
+			out, err := client.CompareFiles(ctx)
+
+			for _, v := range testcase.input {
+				if err := out.Send(v); err != nil {
+					t.Errorf("Error while sending message: %v", err)
+				}
+			}
+
+			if err := out.CloseSend(); err != nil {
+				t.Errorf("Error closing stream: %v", err)
+			}
+
+			var outputs []*pb.FileDiff
+			for {
+				o, err := out.Recv()
+				if errors.Is(err, io.EOF) {
+					break
+				}
+
+				outputs = append(outputs, o)
+			}
+
+			if err != nil {
+				assert.ErrorContains(t, err, testcase.expected.err.Error())
+			} else {
+				assert.Equal(t, len(testcase.expected.out), len(outputs))
+				for i, o := range outputs {
+					assert.Equal(t, testcase.expected.out[i].IsSame, o.IsSame)
+				}
+			}
 		})
 	}
 }
