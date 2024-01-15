@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"testing"
 
 	"github.com/aacuadras/ha-utils/lib/filediff"
@@ -53,6 +54,10 @@ func createFileClient(ctx context.Context) (pb.FileUtilsClient, func()) {
 
 func encondeFileContent(fileContent string) string {
 	return b64.StdEncoding.EncodeToString([]byte(fileContent))
+}
+
+func deleteTestFiles() {
+	os.RemoveAll("./test_files/")
 }
 
 func TestCompareFile(t *testing.T) {
@@ -121,6 +126,7 @@ func TestCompareFile(t *testing.T) {
 			} else {
 				assert.Equal(t, testcase.expected.output.IsSame, out.IsSame)
 			}
+			deleteTestFiles()
 		})
 	}
 }
@@ -150,19 +156,42 @@ func TestSendFile(t *testing.T) {
 				},
 			},
 		},
+		"send_same_file": {
+			input: &pb.File{
+				FileName:       "./test_files/test.txt",
+				EncodedContent: encondeFileContent("This is a test"),
+			},
+			expected: expectation{
+				output: &pb.ProcessedFile{
+					Processed: false,
+				},
+			},
+		},
+		"send_nonexistent_file": {
+			input: &pb.File{
+				FileName:       "./test_files/nonexistentfile.txt",
+				EncodedContent: encondeFileContent("This is a test"),
+			},
+			expected: expectation{
+				output: &pb.ProcessedFile{
+					Processed: true,
+					FileName:  "./test_files/nonexistentfile.txt",
+				},
+			},
+		},
 	}
 
 	for scenario, testcase := range testCases {
 		t.Run(scenario, func(t *testing.T) {
 			filediff.CreateTestFile("This is a test", "test.txt")
 			out, err := client.SendFile(ctx, testcase.input)
-			log.Print(out.Processed)
-			log.Print(testcase.expected.output.Processed)
 
 			assert.Nil(t, err)
 			assert.Equal(t, testcase.expected.output.Processed, out.Processed)
 			assert.Equal(t, testcase.expected.output.FileName, out.FileName)
 			assert.Equal(t, testcase.expected.output.Error, out.Error)
+
+			deleteTestFiles()
 		})
 	}
 }
@@ -299,6 +328,8 @@ func TestCompareFiles(t *testing.T) {
 					assert.Equal(t, testcase.expected.out[i].IsSame, o.IsSame)
 				}
 			}
+
+			deleteTestFiles()
 		})
 	}
 }
@@ -376,6 +407,35 @@ func TestSendFiles(t *testing.T) {
 				},
 			},
 		},
+		"send_files": {
+			input: []*pb.File{
+				{
+					FileName:       "./test_files/nonexistentfile1.txt",
+					EncodedContent: encondeFileContent("This is a test"),
+				},
+				{
+					FileName:       "./test_files/nonexistentfile2.txt",
+					EncodedContent: encondeFileContent("This is a test"),
+				},
+				{
+					FileName:       "./test_files/nonexistentfile1.txt",
+					EncodedContent: encondeFileContent("This is a test"),
+				},
+			},
+			expected: []*pb.ProcessedFile{
+				{
+					Processed: true,
+					FileName:  "./test_files/nonexistentfile1.txt",
+				},
+				{
+					Processed: true,
+					FileName:  "./test_files/nonexistentfile2.txt",
+				},
+				{
+					Processed: false,
+				},
+			},
+		},
 	}
 
 	for scenario, testcase := range testcases {
@@ -412,6 +472,8 @@ func TestSendFiles(t *testing.T) {
 				assert.Equal(t, testcase.expected[i].FileName, o.FileName)
 				assert.Equal(t, testcase.expected[i].Error, o.Error)
 			}
+
+			deleteTestFiles()
 		})
 	}
 }

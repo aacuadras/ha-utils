@@ -25,9 +25,15 @@ func NewFileServer() pb.FileUtilsServer {
 // that the file was not processed and ignore it
 func (s *fileServer) SendFile(ctx context.Context, in *pb.File) (*pb.ProcessedFile, error) {
 	// Only substitute the file if it's not equal
-	isEqual, err := filediff.IsSameFile(in.FileName, in.EncodedContent)
-	if err != nil {
-		return &pb.ProcessedFile{}, err
+	var isEqual bool
+	var err error
+	if filediff.DoesFileExist(in.FileName) {
+		isEqual, err = filediff.IsSameFile(in.FileName, in.EncodedContent)
+		if err != nil {
+			return &pb.ProcessedFile{}, err
+		}
+	} else {
+		isEqual = false
 	}
 
 	if !isEqual {
@@ -61,9 +67,14 @@ func (s *fileServer) SendFiles(stream pb.FileUtils_SendFilesServer) error {
 			return err
 		}
 
-		isEqual, err := filediff.IsSameFile(in.FileName, in.EncodedContent)
-		if err != nil {
-			return err
+		var isEqual bool
+		if filediff.DoesFileExist(in.FileName) {
+			isEqual, err = filediff.IsSameFile(in.FileName, in.EncodedContent)
+			if err != nil {
+				return err
+			}
+		} else {
+			isEqual = false
 		}
 
 		s.mu.Lock()

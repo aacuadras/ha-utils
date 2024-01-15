@@ -16,6 +16,14 @@ func decodeFile(fileContents string) ([]byte, error) {
 	return decodedContents, nil
 }
 
+func DoesFileExist(fileName string) bool {
+	if _, err := os.Stat(fileName); err == nil {
+		return true
+	} else {
+		return false
+	}
+}
+
 // This function checks if the contents of a file match the contents of the file currently in the system
 func IsSameFile(fileName string, encodedContent string) (bool, error) {
 	decodedContent, err := decodeFile(encodedContent)
