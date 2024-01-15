@@ -49,6 +49,8 @@ func (s *fileServer) SendFile(ctx context.Context, in *pb.File) (*pb.ProcessedFi
 	}, nil
 }
 
+// This function works the same way as SendFile, but it receives a stream of File so it can process multiple files
+// instead of one at a time
 func (s *fileServer) SendFiles(stream pb.FileUtils_SendFilesServer) error {
 	for {
 		in, err := stream.Recv()
@@ -107,6 +109,8 @@ func (s *fileServer) CompareFile(ctx context.Context, in *pb.File) (*pb.FileDiff
 	return &pb.FileDiff{IsSame: isEqual}, nil
 }
 
+// This function works the same way as CompareFile, but it receives a stream of File so it can process multiple files
+// instead of one at a time
 func (s *fileServer) CompareFiles(stream pb.FileUtils_CompareFilesServer) error {
 	for {
 		in, err := stream.Recv()
